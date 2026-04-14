@@ -1,6 +1,5 @@
 const DB_KEY = 'farmUltimateDB';
 
-// تعديل: جعل المخزن يبدأ فارغاً تماماً بدون خامات افتراضية
 const DEFAULT_DB = {
   config: {
     machinePrice: 60000,
@@ -8,301 +7,216 @@ const DEFAULT_DB = {
     laborRate: 50,
     kwPrice: 2
   },
-  inventory: [], // فارغ
+  inventory: [],
   sales: []
 };
 
 let db = loadDB();
-let currentCalc = {
-  cost: 0,
-  price: 0,
-  matCost: 0,
-  dep: 0,
-  labor: 0,
-  extras: 0,
-  materialUsage: []
-};
-let editingCode = null;
+let currentCalc = {};
 
 function loadDB() {
   try {
     const raw = localStorage.getItem(DB_KEY);
-    if (!raw) return normalizeDB(DEFAULT_DB);
-    const parsed = JSON.parse(raw);
-    return normalizeDB(parsed);
+    if (!raw) return DEFAULT_DB;
+    return normalizeDB(JSON.parse(raw));
   } catch {
-    return normalizeDB(DEFAULT_DB);
+    return DEFAULT_DB;
   }
 }
 
-function normalizeDB(source) {
-  const safeSource = source && typeof source === 'object' ? source : {};
-  const configSource = safeSource.config && typeof safeSource.config === 'object' ? safeSource.config : {};
-  const inventorySource = Array.isArray(safeSource.inventory) ? safeSource.inventory : [];
-  const salesSource = Array.isArray(safeSource.sales) ? safeSource.sales : [];
-
+function normalizeDB(data) {
   return {
-    config: {
-      machinePrice: toPositiveNumber(configSource.machinePrice, DEFAULT_DB.config.machinePrice),
-      machineLife: Math.max(1, toPositiveNumber(configSource.machineLife, DEFAULT_DB.config.machineLife)),
-      laborRate: toPositiveNumber(configSource.laborRate, DEFAULT_DB.config.laborRate),
-      kwPrice: toPositiveNumber(configSource.kwPrice, DEFAULT_DB.config.kwPrice)
-    },
-    inventory: inventorySource.map(normalizeInventoryItem).filter(Boolean),
-    sales: salesSource.map(normalizeSale).filter(Boolean)
+    config: data.config || DEFAULT_DB.config,
+    inventory: Array.isArray(data.inventory) ? data.inventory : [],
+    sales: Array.isArray(data.sales) ? data.sales : []
   };
-}
-
-function normalizeInventoryItem(item) {
-  if (!item || typeof item !== 'object') return null;
-  const id = item.id ?? Date.now() + Math.floor(Math.random() * 1000);
-  const name = String(item.name ?? '').trim();
-  const price = toPositiveNumber(item.price, 0);
-  const weight = toPositiveNumber(item.weight, 0);
-  const stock = clampNumber(toPositiveNumber(item.stock, weight), 0, weight || Number.MAX_SAFE_INTEGER);
-  if (!name) return null;
-  return { id, name, price, weight, stock };
-}
-
-function normalizeSale(item) {
-  if (!item || typeof item !== 'object') return null;
-  const code = String(item.code ?? '').trim();
-  const name = String(item.name ?? '').trim();
-  if (!code || !name) return null;
-  const cost = toPositiveNumber(item.cost, 0);
-  const price = toPositiveNumber(item.price, 0);
-  return {
-    code,
-    date: String(item.date ?? '').trim(),
-    name,
-    customer: String(item.customer ?? '').trim(),
-    notes: String(item.notes ?? '').trim(),
-    cost: Number(cost.toFixed(2)),
-    price: Number(price.toFixed(2)),
-    profit: Number((price - cost).toFixed(2))
-  };
-}
-
-function toNumber(value, fallback = 0) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-}
-
-function toPositiveNumber(value, fallback = 0) {
-  const num = toNumber(value, fallback);
-  return num >= 0 ? num : fallback;
-}
-
-function clampNumber(value, min = 0, max = Number.MAX_SAFE_INTEGER) {
-  return Math.min(max, Math.max(min, toNumber(value, min)));
 }
 
 function saveDB() {
   localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
 
-function formatMoney(value) {
-  return `${Number(value || 0).toFixed(1)} ج`;
-}
+/* =========================
+   INVENTORY CORE
+========================= */
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+function addStockPrompt() {
+  const name = prompt('اسم الخامة:');
+  if (!name) return;
 
-function escapeJsString(value) {
-  return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
+  const price = Number(prompt('سعر البكرة بالجنيه:'));
+  const weight = Number(prompt('وزن البكرة بالجرام:'));
 
-function showToast(message, type = 'success') {
-  const oldToast = document.getElementById('toastMsg');
-  if (oldToast) oldToast.remove();
-  const toast = document.createElement('div');
-  toast.id = 'toastMsg';
-  toast.className = `toast ${type}`;
-  toast.innerText = message;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(-8px)'; }, 2200);
-  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2600);
-}
+  if (!price || !weight || price <= 0 || weight <= 0) {
+    alert('بيانات غير صحيحة');
+    return;
+  }
 
-function getNextOrderCode() {
-  let maxNumber = 1000;
-  db.sales.forEach(sale => {
-    const match = String(sale.code || '').match(/ORD-(\d+)/);
-    if (match) maxNumber = Math.max(maxNumber, Number(match[1]));
-  });
-  return `ORD-${maxNumber + 1}`;
-}
+  const item = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    name: name.trim(),
+    price,
+    weight,
+    stock: weight
+  };
 
-function saveConfig() {
-  db.config.machinePrice = toPositiveNumber(document.getElementById('machinePrice').value, 0);
-  db.config.machineLife = Math.max(1, toPositiveNumber(document.getElementById('machineLife').value, 1));
-  db.config.laborRate = toPositiveNumber(document.getElementById('laborRate').value, 0);
+  db.inventory.push(item);
   saveDB();
-  calc();
+  updateUI();
 }
 
-// تعديل: إضافة زر الحذف لكل خامة في الواجهة
+/* حذف خامة */
+function deleteMaterial(id) {
+  const item = db.inventory.find(x => x.id === id);
+  if (!item) return;
+
+  if (!confirm(`حذف خامة: ${item.name} ؟`)) return;
+
+  db.inventory = db.inventory.filter(x => x.id !== id);
+  saveDB();
+  updateUI();
+}
+
+/* =========================
+   UI RENDER
+========================= */
+
 function updateUI() {
   const invUI = document.getElementById('inventoryUI');
-  const amsInp = document.getElementById('amsInputs');
-  const nextOrderCode = document.getElementById('nextOrderCode');
-  if (!invUI || !amsInp || !nextOrderCode) return;
+  const ams = document.getElementById('amsInputs');
+  const nextOrder = document.getElementById('nextOrderCode');
+
+  if (!invUI || !ams) return;
 
   invUI.innerHTML = '';
-  amsInp.innerHTML = '';
+  ams.innerHTML = '';
 
-  if (!db.inventory.length) {
-    invUI.innerHTML = `<div class="empty-state">لا توجد خامات مضافة.</div>`;
-    amsInp.innerHTML = `<div class="empty-state">أضف خامة أولاً.</div>`;
-    nextOrderCode.innerText = getNextOrderCode().replace('ORD-', '');
+  if (db.inventory.length === 0) {
+    invUI.innerHTML = `<div class="empty-state">لا توجد خامات</div>`;
+    ams.innerHTML = `<div class="empty-state">أضف خامة أولاً</div>`;
     return;
   }
 
   db.inventory.forEach(item => {
-    const weight = Math.max(item.weight, 1);
-    const percentage = clampNumber((item.stock / weight) * 100, 0, 100);
+    const percent = Math.min(100, (item.stock / item.weight) * 100);
 
     invUI.innerHTML += `
-      <div class="stock-item ${item.stock < 150 ? 'low' : ''}">
+      <div class="stock-item">
         <div class="stock-header">
-          <span>${escapeHtml(item.name)}</span>
-          <button class="action-btn delete" onclick="deleteMaterial(${item.id})" style="padding: 2px 8px; font-size: 10px;">حذف</button>
+          <span>${item.name}</span>
+          <button class="action-btn delete" onclick="deleteMaterial(${item.id})">حذف</button>
         </div>
+
         <div class="stock-bar">
-          <div class="stock-progress" style="width:${percentage}%"></div>
+          <div class="stock-progress" style="width:${percent}%"></div>
         </div>
-        <div style="font-size: 11px; margin-top: 4px;">${item.stock.toFixed(0)}g / ${item.weight.toFixed(0)}g</div>
+
+        <div style="font-size:12px;margin-top:5px;">
+          ${item.stock}g / ${item.weight}g
+        </div>
       </div>
     `;
 
-    amsInp.innerHTML += `
+    ams.innerHTML += `
       <div class="form-group">
-        <label>${escapeHtml(item.name)}</label>
-        <input type="number" class="ams-weight" data-id="${item.id}" placeholder="جرام" min="0" step="0.1" oninput="calc()">
+        <label>${item.name}</label>
+        <input type="number" class="ams-weight" data-id="${item.id}" placeholder="جرام المستخدم" oninput="calc()">
       </div>
     `;
   });
-  nextOrderCode.innerText = getNextOrderCode().replace('ORD-', '');
 }
 
-// دالة جديدة لحذف الخامة من المخزن
-function deleteMaterial(id) {
-  if (!confirm('هل تريد حذف هذه الخامة نهائياً من المخزن؟')) return;
-  db.inventory = db.inventory.filter(item => item.id !== id);
-  saveDB();
-  updateUI();
-  calc();
-  showToast('تم حذف الخامة');
-}
+/* =========================
+   MATERIAL USAGE
+========================= */
 
-function getMaterialUsageFromInputs() {
+function getMaterialUsage() {
   const usage = [];
-  document.querySelectorAll('.ams-weight').forEach(input => {
-    const id = input.dataset.id;
-    const grams = toPositiveNumber(input.value, 0);
-    const item = db.inventory.find(x => String(x.id) === String(id));
-    if (item && grams > 0) {
-      usage.push({
-        id: item.id,
-        name: item.name,
-        grams,
-        pricePerGram: item.weight > 0 ? item.price / item.weight : 0,
-        stock: item.stock
-      });
-    }
+
+  document.querySelectorAll('.ams-weight').forEach(inp => {
+    const id = Number(inp.dataset.id);
+    const grams = Number(inp.value) || 0;
+
+    const item = db.inventory.find(x => x.id === id);
+    if (!item || grams <= 0) return;
+
+    usage.push({
+      item,
+      grams,
+      cost: (item.price / item.weight) * grams
+    });
   });
+
   return usage;
 }
 
+/* =========================
+   CALCULATION ENGINE
+========================= */
+
 function calc() {
-  const materialUsage = getMaterialUsageFromInputs();
-  let matCost = 0;
-  materialUsage.forEach(entry => { matCost += entry.grams * entry.pricePerGram; });
+  const usage = getMaterialUsage();
 
-  const hours = toPositiveNumber(document.getElementById('printHours')?.value, 0);
-  const manual = toPositiveNumber(document.getElementById('manualMins')?.value, 0);
-  const margin = toPositiveNumber(document.getElementById('profitMargin')?.value, 0);
+  let matCost = usage.reduce((sum, u) => sum + u.cost, 0);
 
-  const machineLife = Math.max(1, toPositiveNumber(db.config.machineLife, 1));
-  const dep = hours * (toPositiveNumber(db.config.machinePrice, 0) / machineLife);
-  const labor = (manual / 60) * toPositiveNumber(db.config.laborRate, 0);
+  const hours = Number(document.getElementById('printHours')?.value || 0);
+  const laborMin = Number(document.getElementById('manualMins')?.value || 0);
+  const margin = Number(document.getElementById('profitMargin')?.value || 0);
+
+  const dep = hours * (db.config.machinePrice / db.config.machineLife);
+  const labor = (laborMin / 60) * db.config.laborRate;
 
   const packaging = 10;
-  const failRate = 0.10;
-  const baseCost = matCost + dep + labor + packaging;
-  const finalCost = baseCost * (1 + failRate);
-  const finalPrice = Math.ceil(finalCost + (finalCost * (margin / 100)));
+  const failRate = 0.1;
 
-  setText('resMat', formatMoney(matCost));
-  setText('resDep', formatMoney(dep));
-  setText('resLabor', formatMoney(labor));
-  setText('resExtras', formatMoney(packaging + (baseCost * failRate)));
-  setText('resTotal', formatMoney(finalCost));
-  setText('resFinal', `${finalPrice} ج`);
+  const base = matCost + dep + labor + packaging;
+  const total = base * (1 + failRate);
+  const final = Math.ceil(total * (1 + margin / 100));
 
-  currentCalc = { cost: Number(finalCost.toFixed(2)), price: Number(finalPrice.toFixed(2)), matCost, dep, labor, materialUsage };
+  document.getElementById('resMat').innerText = matCost.toFixed(1);
+  document.getElementById('resDep').innerText = dep.toFixed(1);
+  document.getElementById('resLabor').innerText = labor.toFixed(1);
+  document.getElementById('resExtras').innerText = (packaging + total * failRate).toFixed(1);
+  document.getElementById('resTotal').innerText = total.toFixed(1);
+  document.getElementById('resFinal').innerText = final + " ج";
+
+  currentCalc = { matCost, dep, labor, total, final, usage };
 }
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.innerText = value;
-}
-
-function resetOrderForm() {
-  document.getElementById('itemName').value = '';
-  document.getElementById('customerName').value = '';
-  document.getElementById('printHours').value = '';
-  document.querySelectorAll('.ams-weight').forEach(input => input.value = '');
-  calc();
-  updateUI();
-}
+/* =========================
+   SAVE SALE
+========================= */
 
 function saveSale() {
   const name = document.getElementById('itemName').value.trim();
-  const usage = getMaterialUsageFromInputs();
-  if (!name || !usage.length) { showToast('أكمل بيانات الأوردر والخامات', 'error'); return; }
+  if (!name) return alert('ادخل اسم المجسم');
 
-  usage.forEach(entry => {
-    const item = db.inventory.find(x => x.id === entry.id);
-    if (item) item.stock = Number((item.stock - entry.grams).toFixed(2));
+  const usage = getMaterialUsage();
+  if (usage.length === 0) return alert('لا توجد خامات مستخدمة');
+
+  // خصم المخزون
+  usage.forEach(u => {
+    u.item.stock = Math.max(0, u.item.stock - u.grams);
   });
 
   db.sales.push({
-    code: getNextOrderCode(),
+    code: 'ORD-' + Date.now(),
     date: new Date().toISOString().slice(0, 10),
     name,
-    customer: document.getElementById('customerName').value,
-    cost: currentCalc.cost,
-    price: currentCalc.price
+    cost: currentCalc.total,
+    price: currentCalc.final
   });
 
   saveDB();
-  resetOrderForm();
-  showToast('تم الحفظ وخصم المخزن');
+  updateUI();
+  alert('تم الحفظ بنجاح');
 }
 
-function addStockPrompt() {
-  const name = prompt('اسم الخامة:');
-  const price = prompt('سعر البكرة:');
-  const weight = prompt('وزن البكرة بالجرام (1000):');
+/* =========================
+   INIT
+========================= */
 
-  if (name && price && weight) {
-    db.inventory.push({
-      id: Date.now(),
-      name: name.trim(),
-      price: Number(price),
-      weight: Number(weight),
-      stock: Number(weight)
-    });
-    saveDB();
-    updateUI();
-    showToast('تمت إضافة الخامة');
-  }
-}
-
-// استدعاء أولي لتشغيل الواجهة
 document.addEventListener('DOMContentLoaded', () => {
-    updateUI();
-    calc();
+  updateUI();
+  calc();
 });
