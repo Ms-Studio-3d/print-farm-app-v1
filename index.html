@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Print Farm App</title>
+  <title>Print Farm App - نظام إدارة الطباعة</title>
   <meta name="description" content="تطبيق لإدارة مزرعة الطباعة ثلاثية الأبعاد والمخزون والمبيعات والتسعير" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,10 +30,12 @@
             <span class="section-badge">Inventory</span>
           </div>
 
-          <div id="inventoryUI"></div>
+          <div id="inventoryUI">
+            <div class="empty-state">جاري تحميل المخزن...</div>
+          </div>
 
-          <button class="btn btn-primary" style="margin-top:10px" onclick="addStockPrompt()">
-            + شراء بكرة جديدة
+          <button class="btn btn-primary" style="margin-top:10px; width: 100%;" onclick="addStockPrompt()">
+            + إضافة بكرة خامة جديدة
           </button>
         </section>
 
@@ -43,9 +45,9 @@
             <span class="section-badge">Backup</span>
           </div>
 
-          <div class="inline-actions" style="margin-top: 10px;">
-            <button class="btn btn-primary" style="font-size:12px" onclick="exportBackupJSON()">تصدير JSON</button>
-            <label class="btn btn-primary" style="font-size:12px; text-align:center; cursor:pointer">
+          <div class="inline-actions" style="margin-top: 10px; display: flex; gap: 5px;">
+            <button class="btn btn-primary" style="font-size:12px; flex: 1;" onclick="exportBackupJSON()">تصدير JSON</button>
+            <label class="btn btn-primary" style="font-size:12px; text-align:center; cursor:pointer; flex: 1;">
               استيراد JSON
               <input
                 type="file"
@@ -90,18 +92,9 @@
             </div>
           </div>
 
-          <div class="grid-2" style="margin-top: 10px;">
-            <div class="form-group">
-              <label for="orderNotes">ملاحظات الأوردر</label>
-              <textarea id="orderNotes" placeholder="اختياري"></textarea>
-            </div>
-
-            <div class="form-group">
-              <label>ملاحظات مهمة</label>
-              <div class="field-note">
-                بعد الحفظ سيتم تصفير بيانات الأوردر الحالي فقط، بدون المساس بالمخزن أو الإعدادات.
-              </div>
-            </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label for="orderNotes">ملاحظات الأوردر</label>
+            <textarea id="orderNotes" placeholder="أضف أي تفاصيل إضافية هنا..." rows="2"></textarea>
           </div>
         </section>
 
@@ -112,12 +105,15 @@
           </div>
 
           <div id="amsInputs" class="grid-2"></div>
+          <div class="field-note" style="margin-top: 10px;">
+            * أدخل وزن الجرامات المستخدمة من كل بكرة لحساب التكلفة بدقة.
+          </div>
         </section>
 
         <section class="card">
           <div class="section-head">
             <h3>⚙️ ثوابت التشغيل</h3>
-            <span class="section-badge">Auto Save</span>
+            <span class="section-badge">Settings</span>
           </div>
 
           <div class="grid-3">
@@ -167,7 +163,7 @@
           </div>
 
           <div class="res-row total-row">
-            <span>إجمالي التكلفة عليك:</span>
+            <span>إجمالي التكلفة:</span>
             <span id="resTotal" class="total-value">0 ج</span>
           </div>
 
@@ -210,17 +206,14 @@
           <h4>إجمالي الإيراد</h4>
           <div id="statRev" style="color:var(--primary)">0</div>
         </div>
-
         <div class="stat-box">
           <h4>صافي الربح</h4>
           <div id="statProfit" style="color:var(--secondary)">0</div>
         </div>
-
         <div class="stat-box">
           <h4>عدد المبيعات</h4>
           <div id="statCount">0</div>
         </div>
-
         <div class="stat-box">
           <h4>أعلى بيعة</h4>
           <div id="statTop" style="color:var(--warning)">0</div>
@@ -228,22 +221,15 @@
       </div>
 
       <div class="toolbar">
-        <div class="form-group" style="margin:0;">
-          <label for="salesSearch">بحث داخل المبيعات</label>
-          <input
-            type="text"
-            id="salesSearch"
-            placeholder="ابحث بالكود أو اسم المجسم أو اسم العميل"
-            oninput="renderReportsTable()"
-          >
+        <div class="form-group" style="margin:0; flex: 2;">
+          <label for="salesSearch">بحث</label>
+          <input type="text" id="salesSearch" placeholder="ابحث بالكود أو اسم المجسم..." oninput="renderReportsTable()">
         </div>
-
-        <div class="form-group" style="margin:0;">
+        <div class="form-group" style="margin:0; flex: 1;">
           <label for="filterFrom">من تاريخ</label>
           <input type="date" id="filterFrom" oninput="renderReportsTable()">
         </div>
-
-        <div class="form-group" style="margin:0;">
+        <div class="form-group" style="margin:0; flex: 1;">
           <label for="filterTo">إلى تاريخ</label>
           <input type="date" id="filterTo" oninput="renderReportsTable()">
         </div>
@@ -276,47 +262,39 @@
         <h2 style="margin:0;">✏️ تعديل الأوردر</h2>
         <button onclick="closeEditModal()" class="btn btn-danger" style="width:auto; padding:10px 18px;">إغلاق</button>
       </div>
-
       <div class="grid-2" style="margin-top: 18px;">
         <div class="form-group">
           <label for="editDate">التاريخ</label>
           <input type="date" id="editDate">
         </div>
-
         <div class="form-group">
           <label for="editCode">الكود</label>
           <input type="text" id="editCode" readonly>
         </div>
       </div>
-
       <div class="form-group">
         <label for="editName">اسم المجسم</label>
         <input type="text" id="editName">
       </div>
-
       <div class="form-group">
         <label for="editCustomer">اسم العميل</label>
         <input type="text" id="editCustomer">
       </div>
-
       <div class="form-group">
         <label for="editNotes">ملاحظات</label>
         <textarea id="editNotes"></textarea>
       </div>
-
       <div class="grid-2">
         <div class="form-group">
           <label for="editCost">التكلفة</label>
-          <input type="number" id="editCost" step="0.01" min="0">
+          <input type="number" id="editCost" step="0.01">
         </div>
-
         <div class="form-group">
           <label for="editPrice">البيع</label>
-          <input type="number" id="editPrice" step="0.01" min="0">
+          <input type="number" id="editPrice" step="0.01">
         </div>
       </div>
-
-      <button class="btn btn-primary" style="margin-top: 10px;" onclick="saveEditedSale()">✅ حفظ التعديل</button>
+      <button class="btn btn-primary" style="margin-top: 10px; width: 100%;" onclick="saveEditedSale()">✅ حفظ التعديل</button>
     </div>
   </div>
 
