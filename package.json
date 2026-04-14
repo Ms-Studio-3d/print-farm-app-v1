@@ -1,0 +1,61 @@
+{
+  "name": "print-farm-app",
+  "version": "1.0.0",
+  "description": "Desktop app for 3D print farm management",
+  "main": "main.js",
+  "author": "Ms-Studio-3d",
+  "license": "MIT",
+  "keywords": [
+    "electron",
+    "3d-printing",
+    "print-farm",
+    "desktop-app",
+    "inventory"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.0.2",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.msstudio3d.printfarm",
+    "productName": "Print Farm App",
+    "artifactName": "${productName} Setup ${version}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!dist/**/*",
+      "!.git/**/*",
+      "!.github/**/*",
+      "!node_modules/.cache/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "Ms-Studio-3d"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "shortcutName": "Print Farm App",
+      "uninstallDisplayName": "Print Farm App"
+    },
+    "publish": null
+  }
+}
