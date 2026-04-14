@@ -16,7 +16,8 @@
     "start": "electron .",
     "build": "electron-builder --dir",
     "dist": "electron-builder --publish never",
-    "dist:win": "electron-builder --win --publish never"
+    "dist:win": "electron-builder --win --publish never",
+    "dist:portable": "electron-builder --win portable --publish never"
   },
   "devDependencies": {
     "electron": "^31.0.2",
@@ -41,9 +42,11 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
         }
       ],
       "icon": "build/icon.ico",
